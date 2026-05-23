@@ -1,6 +1,6 @@
 import os
 import shutil
-
+#挪动文件-混合组分
 # --- 配置路径 ---
 source_dir = r'D:\data\EEM_data\hunhe-lixiang\excel\strength'  # 原始文件路径
 target_dir = r'D:\data\EEM_data\hunhe-lixiang\excel\strength\interpolated'  # 目标存放路径

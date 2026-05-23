@@ -1,6 +1,6 @@
 import os
 import shutil
-
+#挪动文件
 #这个是单组分的挪动方式（源数据）
 def organize_eem_files(source_dir, target_dir):
     # 1. 定义第一个数字的排除列表
