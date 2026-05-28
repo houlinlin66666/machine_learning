@@ -24,8 +24,7 @@ Antibiotic Concentration Regression Pipeline
     torch>=2.0
 
 安装:
-    pip install numpy pandas scipy scikit-learn xgboost matplotlib seaborn \
-                joblib openpyxl torch
+    pip install numpy pandas scipy scikit-learn xgboost matplotlib seaborn joblib openpyxl torch
 ----------------------------------------------------------------
 """
 
@@ -63,6 +62,7 @@ from sklearn.linear_model import ElasticNet
 # 一键屏蔽 PyCharm 调试器的烦人海报警告
 # ==============================================
 import warnings
+
 # 忽略所有 UserWarning，直接干掉那个 pkg_resources 警告
 warnings.filterwarnings("ignore", category=UserWarning)
 # 额外忽略掉 sklearn、joblib 等训练时的无用警告
@@ -71,11 +71,13 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 # 再强力清理一遍所有警告
 import logging
+
 logging.getLogger("setuptools").setLevel(logging.ERROR)
 logging.getLogger("pkg_resources").setLevel(logging.ERROR)
 
 try:
     from xgboost import XGBRegressor
+
     HAVE_XGB = True
 except Exception:
     HAVE_XGB = False
@@ -89,17 +91,17 @@ warnings.filterwarnings("ignore")
 # ============================================================
 # 全局配置
 # ============================================================
-DATA_DIR   = r"C:\Users\666\Desktop\yang"
-FIGURE_DIR = os.path.join(DATA_DIR, "draw")
-MODEL_DIR  = os.path.join(DATA_DIR, "models")
+DATA_DIR = r"/Users/houlinlin/master/data/EEM_data/lixiang/EEM-huan/strength/all"
+FIGURE_DIR = os.path.join(DATA_DIR, "figure")
+MODEL_DIR = os.path.join(DATA_DIR, "models")
 RESULT_CSV = os.path.join(DATA_DIR, "results.csv")
 
-SEED       = 42
-TEST_SIZE  = 0.2
-CV_FOLDS   = 5
-N_ITER_SEARCH = 20            # 随机搜索迭代次数
-LOG_TARGET  = True            # 浓度跨多个数量级 -> 在 log1p 空间训练
-DEVICE     = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+SEED = 42
+TEST_SIZE = 0.2
+CV_FOLDS = 5
+N_ITER_SEARCH = 20  # 随机搜索迭代次数
+LOG_TARGET = True  # 浓度跨多个数量级 -> 在 log1p 空间训练
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 np.random.seed(SEED)
 torch.manual_seed(SEED)
@@ -109,7 +111,6 @@ if torch.cuda.is_available():
 os.makedirs(FIGURE_DIR, exist_ok=True)
 os.makedirs(MODEL_DIR, exist_ok=True)
 
-
 # ============================================================
 # Nature 风格 matplotlib 配置
 # ============================================================
@@ -118,46 +119,45 @@ CM = 1.0 / 2.54
 SINGLE_COL = 8.5 * CM
 DOUBLE_COL = 17.5 * CM
 
-
+MODEL_MAP = {
+    "RandomForest": "RF", "GradientBoosting": "GBRT", "SVR": "SVR",
+    "KernelRidge": "KRR", "XGBoost": "XGB",
+     "CNN2D": "CNN"
+}
 def set_nature_style() -> None:
-    """深度定制 Nature 风格绘图参数"""
-    # 颜色方案：使用专业学术色盘，如 viridis, magma 或科学期刊常用的色彩
-    plt.style.use("seaborn-v0_8-white")  # 基础样式
-
+    """深度定制 Nature 风格：Times New Roman + 极简轴"""
+    plt.style.use("seaborn-v0_8-white")
+    # 强制设置新罗马字体
     mpl.rcParams.update({
-        "font.family": "Arial",  # 顶刊标准字体
-        "font.size": 8,  # Nature 规定正文绘图字体通常为 5-8pt
+        "font.family": "serif",
+        "font.serif": ["Times New Roman"],
+        "font.size": 8,
         "axes.titlesize": 9,
         "axes.labelsize": 8,
         "xtick.labelsize": 7,
         "ytick.labelsize": 7,
         "legend.fontsize": 7,
-        "axes.linewidth": 0.8,  # 线条细化
-        "grid.linewidth": 0.5,
-        "lines.linewidth": 1.0,
-        "legend.frameon": False,  # 去除图例边框
-        "savefig.dpi": 600,  # 高清输出
-        "axes.labelpad": 4,
-        "xtick.direction": "out",  # 刻度线向外
-        "ytick.direction": "out",
-        "xtick.major.size": 3,
-        "ytick.major.size": 3,
-        "pdf.fonttype": 42,  # 确保 PDF 字体可编辑
+        "axes.linewidth": 0.8,
+        "savefig.dpi": 600,
+        "pdf.fonttype": 42,
+        "mathtext.fontset": "stix", # 让公式也接近 Times 风格
     })
-
 
 # 推荐使用的颜色循环 (Scientific color maps)
 COLOR_CYCLE = ['#440154', '#31688e', '#35b779', '#fde725']  # Viridis 采样
+
+
 def plot_relative_error(y_test, y_pred, model_name):
     rel_error = np.abs(y_test - y_pred) / (y_test + 1e-9) * 100
-    fig, ax = plt.subplots(figsize=(8.5*CM, 7*CM))
+    fig, ax = plt.subplots(figsize=(8.5 * CM, 7 * CM))
     ax.scatter(y_test, rel_error, s=10, c='#31688e', alpha=0.6, edgecolors='none')
-    ax.set_xscale('log') # 浓度通常跨度大，用对数轴
-    ax.axhline(10, color='red', ls='--', lw=0.8, label='10% Error') # 设定参考线
+    ax.set_xscale('log')  # 浓度通常跨度大，用对数轴
+    ax.axhline(10, color='red', ls='--', lw=0.8, label='10% Error')  # 设定参考线
     ax.set_xlabel('True Concentration (µg/L)')
     ax.set_ylabel('Relative Error (%)')
     ax.set_title(f'Prediction Stability - {model_name}')
     save_fig(fig, f"relative_error_{model_name}")
+
 
 def save_fig(fig: plt.Figure, name: str) -> None:
     """保存 PDF (矢量) + PNG (600 dpi)."""
@@ -186,7 +186,7 @@ def parse_concentration(fname: str) -> float | None:
 
 def load_and_parse_data(folder_path: str
                         ) -> Tuple[np.ndarray, np.ndarray, pd.DataFrame,
-                                   np.ndarray, np.ndarray]:
+np.ndarray, np.ndarray]:
     """
     读取目录内所有 EEM Excel:
         第 1 行为发射波长表头 (Em), 第 1 列为激发波长 (Ex)。
@@ -260,9 +260,9 @@ def stratified_regression_split(y: np.ndarray, n_bins: int = 10
 
 def preprocess_data(X: np.ndarray, y: np.ndarray
                     ) -> Tuple[np.ndarray, np.ndarray,
-                               np.ndarray, np.ndarray,
-                               StandardScaler]:
-    X_flat = X.reshape(X.shape[0], -1)            # (N, n_ex * n_em)
+np.ndarray, np.ndarray,
+StandardScaler]:
+    X_flat = X.reshape(X.shape[0], -1)  # (N, n_ex * n_em)
     strat = stratified_regression_split(y)
     X_tr, X_te, y_tr, y_te = train_test_split(
         X_flat, y, test_size=TEST_SIZE,
@@ -283,44 +283,44 @@ def _model_search_space() -> Dict[str, Tuple[Any, Dict[str, Any]]]:
         "RandomForest": (
             RandomForestRegressor(random_state=SEED, n_jobs=-1),
             {"n_estimators": [200, 400, 600],
-             "max_depth":    [None, 10, 20, 40],
+             "max_depth": [None, 10, 20, 40],
              "min_samples_split": [2, 4, 8],
              "max_features": ["sqrt", 0.3, 0.5]},
         ),
         "SVR": (
             SVR(),
-            {"C":      [0.1, 1, 10, 100],
-             "gamma":  ["scale", 1e-3, 1e-4],
+            {"C": [0.1, 1, 10, 100],
+             "gamma": ["scale", 1e-3, 1e-4],
              "kernel": ["rbf"],
              "epsilon": [0.01, 0.05, 0.1]},
         ),
         "GradientBoosting": (
             GradientBoostingRegressor(random_state=SEED),
             {"n_estimators": [100, 200, 400],
-             "max_depth":    [2, 3, 4],
-             "learning_rate":[0.03, 0.05, 0.1],
-             "subsample":    [0.7, 1.0]},
+             "max_depth": [2, 3, 4],
+             "learning_rate": [0.03, 0.05, 0.1],
+             "subsample": [0.7, 1.0]},
         ),
         "KernelRidge": (
             KernelRidge(kernel="rbf"),
             {"alpha": [1e-3, 1e-2, 1e-1, 1],
              "gamma": [1e-4, 1e-3, 1e-2, "scale"]},
         ),
-        "ElasticNet": (
-            ElasticNet(random_state=SEED, max_iter=10000),
-            {"alpha":    [1e-3, 1e-2, 1e-1, 1, 10],
-             "l1_ratio": [0.1, 0.3, 0.5, 0.7, 0.9]},
-        ),
+        # "ElasticNet": (
+        #     ElasticNet(random_state=SEED, max_iter=10000),
+        #     {"alpha": [1e-3, 1e-2, 1e-1, 1, 10],
+        #      "l1_ratio": [0.1, 0.3, 0.5, 0.7, 0.9]},
+        # ),
     }
     if HAVE_XGB:
         space["XGBoost"] = (
             XGBRegressor(random_state=SEED, n_jobs=-1, verbosity=0,
                          tree_method="hist"),
-            {"n_estimators":   [200, 400, 600],
-             "max_depth":      [3, 5, 7],
-             "learning_rate":  [0.03, 0.05, 0.1],
-             "subsample":      [0.7, 0.9, 1.0],
-             "colsample_bytree":[0.6, 0.8, 1.0]},
+            {"n_estimators": [200, 400, 600],
+             "max_depth": [3, 5, 7],
+             "learning_rate": [0.03, 0.05, 0.1],
+             "subsample": [0.7, 0.9, 1.0],
+             "colsample_bytree": [0.6, 0.8, 1.0]},
         )
     else:
         print("[Note] 未检测到 xgboost, 跳过 XGBoost。pip install xgboost 即可启用。")
@@ -371,20 +371,22 @@ def train_ml_models(X_train: np.ndarray, y_train: np.ndarray,
 # ============================================================
 # 任务 4b: 深度学习模型 (MLP + 2D-CNN)
 # ============================================================
-class MLPReg(nn.Module):
-    def __init__(self, in_dim: int):
-        super().__init__()
-        self.net = nn.Sequential(
-            nn.Linear(in_dim, 512), nn.ReLU(), nn.Dropout(0.3),
-            nn.Linear(512, 128),    nn.ReLU(), nn.Dropout(0.3),
-            nn.Linear(128, 1),
-        )
-    def forward(self, x):
-        return self.net(x).squeeze(-1)
+# class MLPReg(nn.Module):
+#     def __init__(self, in_dim: int):
+#         super().__init__()
+#         self.net = nn.Sequential(
+#             nn.Linear(in_dim, 512), nn.ReLU(), nn.Dropout(0.3),
+#             nn.Linear(512, 128), nn.ReLU(), nn.Dropout(0.3),
+#             nn.Linear(128, 1),
+#         )
+#
+#     def forward(self, x):
+#         return self.net(x).squeeze(-1)
 
 
 class CNN2DReg(nn.Module):
     """把 EEM 当成 1 通道二维图像处理。"""
+
     def __init__(self, n_ex: int, n_em: int):
         super().__init__()
         self.feat = nn.Sequential(
@@ -428,7 +430,7 @@ def _train_torch_reg(model: nn.Module, X_tr: np.ndarray, y_tr: np.ndarray,
             tot += loss.item() * xb.size(0)
         hist.append(tot / len(ds))
         if (ep + 1) % 20 == 0:
-            print(f"    epoch {ep+1:3d}/{epochs}  MSE={hist[-1]:.4f}")
+            print(f"    epoch {ep + 1:3d}/{epochs}  MSE={hist[-1]:.4f}")
     return model, hist
 
 
@@ -441,6 +443,7 @@ def _predict_torch_reg(model: nn.Module, X: np.ndarray) -> np.ndarray:
 
 class TorchRegressor:
     """sklearn 风格包装。"""
+
     def __init__(self, arch: str, in_dim: int,
                  n_ex: int | None = None, n_em: int | None = None, **kw):
         self.arch = arch
@@ -452,12 +455,10 @@ class TorchRegressor:
 
     def fit(self, X, y):
         torch.manual_seed(SEED)
-        if self.arch == "MLP":
-            self.model = MLPReg(self.in_dim)
-        elif self.arch == "CNN2D":
+        if self.arch == "CNN2D":
             self.model = CNN2DReg(self.n_ex, self.n_em)
         else:
-            raise ValueError(self.arch)
+            raise ValueError(f"Unsupported architecture: {self.arch}")
         self.model, self.history = _train_torch_reg(
             self.model, X.astype(np.float32),
             y.astype(np.float32), **self.kw)
@@ -476,7 +477,7 @@ def train_dl_models(X_train: np.ndarray, y_train: np.ndarray,
     trained: Dict[str, TorchRegressor] = {}
     times: Dict[str, Dict[str, float]] = {}
 
-    for name, arch in [("MLP", "MLP"), ("CNN2D", "CNN2D")]:
+    for name, arch in [("CNN2D", "CNN2D")]:
         print(f"  - {name} ...")
         t0 = time.time()
         reg = TorchRegressor(arch, in_dim, n_ex=n_ex, n_em=n_em,
@@ -503,60 +504,44 @@ def evaluate_models(models: Dict[str, Any],
                     X_test: np.ndarray, y_test: np.ndarray,
                     times: Dict[str, Dict[str, float]],
                     ) -> pd.DataFrame:
-    print("[Task 4c] 在测试集上评估 ...")
+    print("[Task 4c] 在训练集和测试集上评估 ...")
     rows = []
-    cv = KFold(n_splits=CV_FOLDS, shuffle=True, random_state=SEED)
     y_train_fit = np.log1p(y_train) if LOG_TARGET else y_train
 
     for name, mdl in models.items():
-        # ---- 测试集 ----
-        t0 = time.time()
+        # ---- 测试集预测 ----
+        t_start = time.time()
         y_pred_fit = mdl.predict(X_test)
-        t_pred = time.time() - t0
+        t_pred = time.time() - t_start
         y_pred = _inv_target(y_pred_fit)
 
-        rmse = float(np.sqrt(mean_squared_error(y_test, y_pred)))
-        mse  = float(mean_squared_error(y_test, y_pred))
-        mae  = float(mean_absolute_error(y_test, y_pred))
-        r2   = float(r2_score(y_test, y_pred))
+        # ---- 训练集预测 (用于绘图对比) ----
+        y_train_pred = _inv_target(mdl.predict(X_train))
 
-        # ---- 5-fold CV 误差棒 (跳过 DL, 太慢) ----
-        cv_rmse_std = np.nan
-        cv_r2_std   = np.nan
-        if not isinstance(mdl, TorchRegressor):
-            try:
-                rmses, r2s = [], []
-                for tr_idx, va_idx in cv.split(X_train):
-                    m2 = type(mdl)(**mdl.get_params()) \
-                        if hasattr(mdl, "get_params") else None
-                    if m2 is None:
-                        break
-                    m2.fit(X_train[tr_idx], y_train_fit[tr_idx])
-                    yp = _inv_target(m2.predict(X_train[va_idx]))
-                    rmses.append(np.sqrt(mean_squared_error(
-                        y_train[va_idx], yp)))
-                    r2s.append(r2_score(y_train[va_idx], yp))
-                cv_rmse_std = float(np.std(rmses)) if rmses else np.nan
-                cv_r2_std   = float(np.std(r2s))   if r2s   else np.nan
-            except Exception as e:
-                print(f"    [CV warn] {name}: {e}")
+        # 计算指标
+        test_r2 = float(r2_score(y_test, y_pred))
+        test_rmse = float(np.sqrt(mean_squared_error(y_test, y_pred)))
+        train_r2 = float(r2_score(y_train, y_train_pred))
+        train_rmse = float(np.sqrt(mean_squared_error(y_train, y_train_pred)))
 
         row = {
             "model": name,
-            "RMSE": rmse, "MSE": mse, "MAE": mae, "R2": r2,
-            "cv_rmse_std": cv_rmse_std, "cv_r2_std": cv_r2_std,
+            "R2": test_r2,
+            "RMSE": test_rmse,
+            "MSE": float(mean_squared_error(y_test, y_pred)),
+            "MAE": float(mean_absolute_error(y_test, y_pred)),
+            "train_R2": train_r2,
+            "train_RMSE": train_rmse,
             "train_time_s": times.get(name, {}).get("train_time_s", np.nan),
             "predict_time_s": t_pred,
             "y_pred": y_pred.tolist(),
+            "y_train_pred": y_train_pred.tolist()
         }
         rows.append(row)
-        print(f"  - {name:18s} RMSE={rmse:.4g}  R²={r2:.4f}  "
-              f"MAE={mae:.4g}  pred_time={t_pred:.3f}s")
+        print(f"  - {name:18s} | Test R²: {test_r2:.4f} | Train R²: {train_r2:.4f} | Time: {row['train_time_s']:.2f}s")
 
     df = pd.DataFrame(rows)
-    df.drop(columns=["y_pred"]).to_csv(
-        RESULT_CSV, index=False, encoding="utf-8-sig")
-    print(f"[Task 4c] 评估结果已保存: {RESULT_CSV}")
+    df.to_csv(RESULT_CSV, index=False, encoding="utf-8-sig")
     return df
 
 
@@ -564,73 +549,108 @@ def evaluate_models(models: Dict[str, Any],
 # 任务 5: 可视化
 # ============================================================
 def plot_performance_bar(results_df: pd.DataFrame) -> None:
-    """RMSE / MSE / R² 三联柱状图 (CV std 误差棒, viridis 配色)。"""
-    df = results_df.copy().sort_values("R2", ascending=False)
-    fig, axes = plt.subplots(1, 3, figsize=(DOUBLE_COL, DOUBLE_COL * 0.32))
-    x = np.arange(len(df))
-    colors = sns.color_palette("viridis", len(df))
+    """
+    深度优化配色与细节的性能对比柱状图
+    采用 Nature 风格：深青/暗红对比色
+    """
+    df = results_df.copy()
+    df["abbr"] = df["model"].map(lambda x: MODEL_MAP.get(x, x))
+    df = df.sort_values("R2", ascending=False)
 
-    for ax, metric, label, yerr in zip(
-            axes,
-            ["RMSE", "MSE", "R2"],
-            ["RMSE (µg/L)", "MSE (µg/L)$^{2}$", "R$^{2}$"],
-            ["cv_rmse_std", None, "cv_r2_std"]):
-        err = df[yerr].fillna(0) if yerr else None
-        ax.bar(x, df[metric], color=colors, edgecolor="black",
-               linewidth=0.6, yerr=err, capsize=3)
+    # 尺寸微调，确保精致
+    fig, axes = plt.subplots(1, 3, figsize=(DOUBLE_COL, 6 * CM))
+    metrics = [("R2", "train_R2", "$R^2$"),
+               ("RMSE", "train_RMSE", "RMSE"),
+               ("MSE", "MSE", "MSE")]
+
+    x = np.arange(len(df))
+    width = 0.35
+
+    # --- 顶级期刊配色方案 ---
+    # C_TRAIN: 莫兰迪深青蓝 (Midnight Blue)
+    # C_TEST:  莫兰迪干枯玫瑰红 (Muted Rose)
+    c_train = "#1F4E79"
+    c_test = "#C0504D"
+
+    for i, (m_test, m_train, title) in enumerate(metrics):
+        ax = axes[i]
+        if m_train in df.columns:
+            # 增加白色极细边框，增强立体感
+            ax.bar(x - width / 2, df[m_train], width, label='Train',
+                   color=c_train, edgecolor='white', lw=0.6, alpha=0.9)
+            ax.bar(x + width / 2, df[m_test], width, label='Test',
+                   color=c_test, edgecolor='white', lw=0.6, alpha=0.9)
+        else:
+            ax.bar(x, df[m_test], width * 1.5, color=c_test, edgecolor='white', lw=0.6)
+
+        # 细节优化
         ax.set_xticks(x)
-        ax.set_xticklabels(df["model"], rotation=30, ha="right")
-        ax.set_ylabel(label)
-        ax.set_title(label)
-    fig.suptitle("Model performance metrics (error bars: 5-fold CV std)",
-                 fontsize=12, y=1.03)
+        ax.set_xticklabels(df["abbr"], rotation=45, ha='right', fontsize=7)
+
+        # 仅保留左侧和底侧坐标轴
+        sns.despine(ax=ax)
+
+        # 增加极其微弱的水平网格线，辅助阅读但不抢戏
+        ax.yaxis.grid(True, linestyle='--', which='major', color='grey', alpha=0.15)
+
+        # 标题加粗并左对齐，这是顶刊风格
+        ax.set_title(title, fontweight='bold', fontsize=9, loc='left', pad=10)
+
+        if i == 0:
+            ax.legend(frameon=False, loc='upper right', fontsize=7)
+
     fig.tight_layout()
-    save_fig(fig, "fig1_performance_bar")
+    save_fig(fig, "fig1_nature_bar")
 
 
 def plot_pred_vs_true(results_df: pd.DataFrame, y_test: np.ndarray) -> None:
-    """每个模型的 真值 vs 预测值 散点 + 边缘直方图 网格。"""
+    """提升高级感的预测值对比散点图"""
     df = results_df.sort_values("R2", ascending=False).reset_index(drop=True)
     n = len(df)
     ncols = 3
     nrows = int(np.ceil(n / ncols))
-    fig = plt.figure(figsize=(DOUBLE_COL, 3.2 * nrows * CM * 2.54))
-    gs = fig.add_gridspec(nrows, ncols, hspace=0.45, wspace=0.35)
+    fig, axes = plt.subplots(nrows, ncols, figsize=(DOUBLE_COL, 6 * nrows * CM))
+    axes = np.atleast_2d(axes).ravel()
 
-    lo, hi = float(min(y_test.min(), 0)), float(y_test.max())
-    pad = 0.05 * (hi - lo + 1e-9)
+    # --- 高级感散点配色 ---
+    # 训练集：浅灰（背景感）；测试集：深藏蓝/宝石红
+    color_test = "#0D47A1"
+    color_train = "#B0BEC5"
 
     for i, row in df.iterrows():
-        r, c = divmod(i, ncols)
-        gs_inner = gs[r, c].subgridspec(2, 2, width_ratios=[4, 1],
-                                        height_ratios=[1, 4],
-                                        hspace=0.05, wspace=0.05)
-        ax_main = fig.add_subplot(gs_inner[1, 0])
-        ax_top  = fig.add_subplot(gs_inner[0, 0], sharex=ax_main)
-        ax_rig  = fig.add_subplot(gs_inner[1, 1], sharey=ax_main)
+        ax = axes[i]
+        abbr = MODEL_MAP.get(row["model"], row["model"])
+        yp_test = np.asarray(row["y_pred"])
+        yp_train = np.asarray(row["y_train_pred"])
 
-        yp = np.asarray(row["y_pred"])
-        ax_main.scatter(y_test, yp, s=14, alpha=0.7,
-                        color=sns.color_palette("viridis", n)[i],
-                        edgecolor="white", linewidth=0.3)
-        ax_main.plot([lo - pad, hi + pad], [lo - pad, hi + pad],
-                     "k--", lw=1)
-        ax_main.set_xlim(lo - pad, hi + pad)
-        ax_main.set_ylim(lo - pad, hi + pad)
-        ax_main.set_xlabel("True (µg/L)")
-        ax_main.set_ylabel("Predicted (µg/L)")
-        ax_main.text(0.04, 0.96,
-                     f"{row['model']}\nR²={row['R2']:.3f}\nRMSE={row['RMSE']:.3g}",
-                     transform=ax_main.transAxes, va="top", ha="left",
-                     fontsize=9,
-                     bbox=dict(facecolor="white", alpha=0.85, lw=0))
+        # 1. 先画对角线 (置于最底层)
+        all_max = max(y_test.max(), yp_test.max(), y_tr_global.max())
+        ax.plot([0, all_max], [0, all_max], color='#212121', ls='--', lw=0.8, alpha=0.6, zorder=1)
 
-        ax_top.hist(y_test, bins=30, color="#888", alpha=0.7)
-        ax_rig.hist(yp, bins=30, color="#888", alpha=0.7,
-                    orientation="horizontal")
-        ax_top.axis("off"); ax_rig.axis("off")
+        # 2. 绘制训练集：极低透明度，无边框
+        ax.scatter(y_tr_global, yp_train, s=8, alpha=0.15, c=color_train,
+                   label='Train', edgecolors='none', zorder=2)
 
-    save_fig(fig, "fig2_pred_vs_true")
+        # 3. 绘制测试集：较高透明度，白色细边框，增加 Z-index 确保在上方
+        ax.scatter(y_test, yp_test, s=18, alpha=0.8, c=color_test,
+                   label='Test', edgecolors='white', linewidths=0.4, zorder=3)
+
+        # 细节美化
+        ax.set_title(f"{abbr} ($R^2$: {row['R2']:.3f})", fontsize=9, loc='left')
+        ax.set_xlabel("Measured (µg/L)")
+        ax.set_ylabel("Predicted (µg/L)")
+
+        # 使用科学计数法（如果数值较大）
+        ax.ticklabel_format(style='plain', axis='both')
+
+        if i == 0:
+            ax.legend(frameon=False, loc='upper left', markerscale=1.2)
+
+        sns.despine(ax=ax)
+
+    for j in range(i + 1, len(axes)): axes[j].axis('off')
+    fig.tight_layout()
+    save_fig(fig, "fig2_improved_scatter")
 
 
 def plot_residuals(results_df: pd.DataFrame, y_test: np.ndarray) -> None:
@@ -708,8 +728,8 @@ def plot_pca(X: np.ndarray, y: np.ndarray) -> None:
                     alpha=0.85, edgecolor="white", linewidth=0.3)
     cbar = fig.colorbar(sc, ax=ax, pad=0.02)
     cbar.set_label("Concentration (µg/L)")
-    ax.set_xlabel(f"PC1 ({var[0]*100:.1f}%)")
-    ax.set_ylabel(f"PC2 ({var[1]*100:.1f}%)")
+    ax.set_xlabel(f"PC1 ({var[0] * 100:.1f}%)")
+    ax.set_ylabel(f"PC2 ({var[1] * 100:.1f}%)")
     ax.set_title("PCA projection of EEM features")
     sns.despine()
     fig.tight_layout()
@@ -742,8 +762,10 @@ def plot_learning_curves(models: Dict[str, Any],
                 mdl, X_train, y_fit, cv=cv, train_sizes=sizes,
                 scoring="neg_root_mean_squared_error",
                 n_jobs=-1, random_state=SEED)
-            tr_m = -train_scores.mean(1); tr_s = train_scores.std(1)
-            va_m = -val_scores.mean(1);   va_s = val_scores.std(1)
+            tr_m = -train_scores.mean(1);
+            tr_s = train_scores.std(1)
+            va_m = -val_scores.mean(1);
+            va_s = val_scores.std(1)
             ax.plot(train_sizes, tr_m, "o-", color=palette[0], label="Train RMSE")
             ax.fill_between(train_sizes, tr_m - tr_s, tr_m + tr_s,
                             color=palette[0], alpha=0.18)
@@ -819,14 +841,18 @@ def main() -> None:
         print(f"Target transform : {'log1p' if LOG_TARGET else 'identity'}")
         print("-" * 64)
 
-        # 1. 数据
+        # 1. 加载数据
         X, y, meta_df, ex_axis, em_axis = load_and_parse_data(DATA_DIR)
-        meta_df.to_csv(os.path.join(DATA_DIR, "metadata.csv"),
-                       index=False, encoding="utf-8-sig")
-        n_ex, n_em = X.shape[1], X.shape[2]
 
-        # 2-3. 划分 + 标准化
+        # 获取 EEM 尺寸供 CNN 模型使用
+        n_samples, n_ex, n_em = X.shape
+
+        # 2-3. 划分 + 标准化 (只调用一次，确保顺序一致)
+        global y_tr_global
         X_tr, X_te, y_tr, y_te, scaler = preprocess_data(X, y)
+        y_tr_global = y_tr  # 赋值给全局变量供 plot_pred_vs_true 使用
+
+        # 保存标准化器
         joblib.dump(scaler, os.path.join(MODEL_DIR, "scaler.joblib"))
 
         # 4a. 经典模型 + 超参搜索
@@ -848,6 +874,14 @@ def main() -> None:
                           ex_axis, em_axis, dl_models)
 
         # 排行榜
+        print("\n" + "=" * 80)
+        print(f"{'Model':<10} | {'Test R2':<8} | {'Train R2':<8} | {'RMSE':<8} | {'Train(s)':<8} | {'Pred(s)':<8}")
+        print("-" * 80)
+        for _, r in results_df.sort_values("R2", ascending=False).iterrows():
+            abbr = MODEL_MAP.get(r['model'], r['model'])
+            print(
+                f"{abbr:<10} | {r['R2']:<8.4f} | {r['train_R2']:<8.4f} | {r['RMSE']:<8.4f} | {r['train_time_s']:<8.2f} | {r['predict_time_s']:<8.4f}")
+        print("=" * 80)
         print("\n========== 模型排行 (按 R² 降序) ==========")
         print(results_df[["model", "RMSE", "MSE", "MAE", "R2",
                           "train_time_s", "predict_time_s"]]
