@@ -101,7 +101,7 @@ TEST_SIZE = 0.2
 CV_FOLDS = 5
 N_ITER_SEARCH = 20  # 随机搜索迭代次数
 LOG_TARGET = True  # 浓度跨多个数量级 -> 在 log1p 空间训练
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+DEVICE = torch.device("cpu")
 
 np.random.seed(SEED)
 torch.manual_seed(SEED)
@@ -403,8 +403,8 @@ class CNN2DReg(nn.Module):
         self.n_ex, self.n_em = n_ex, n_em
 
     def forward(self, x):
-        # x: (B, n_ex * n_em) -> (B, 1, n_ex, n_em)
-        x = x.view(-1, 1, self.n_ex, self.n_em)
+        # 增加 .contiguous() 确保内存连续
+        x = x.contiguous().view(-1, 1, self.n_ex, self.n_em)
         return self.head(self.feat(x)).squeeze(-1)
 
 
@@ -429,7 +429,7 @@ def _train_torch_reg(model: nn.Module, X_tr: np.ndarray, y_tr: np.ndarray,
             opt.step()
             tot += loss.item() * xb.size(0)
         hist.append(tot / len(ds))
-        if (ep + 1) % 20 == 0:
+        if (ep + 1) % 5 == 0:
             print(f"    epoch {ep + 1:3d}/{epochs}  MSE={hist[-1]:.4f}")
     return model, hist
 
@@ -532,6 +532,7 @@ def evaluate_models(models: Dict[str, Any],
             "MAE": float(mean_absolute_error(y_test, y_pred)),
             "train_R2": train_r2,
             "train_RMSE": train_rmse,
+            "train_MSE": float(mean_squared_error(y_train, y_train_pred)),
             "train_time_s": times.get(name, {}).get("train_time_s", np.nan),
             "predict_time_s": t_pred,
             "y_pred": y_pred.tolist(),
@@ -549,73 +550,73 @@ def evaluate_models(models: Dict[str, Any],
 # 任务 5: 可视化
 # ============================================================
 def plot_performance_bar(results_df: pd.DataFrame) -> None:
-    """
-    深度优化配色与细节的性能对比柱状图
-    采用 Nature 风格：深青/暗红对比色
-    """
     df = results_df.copy()
     df["abbr"] = df["model"].map(lambda x: MODEL_MAP.get(x, x))
     df = df.sort_values("R2", ascending=False)
 
-    # 尺寸微调，确保精致
-    fig, axes = plt.subplots(1, 3, figsize=(DOUBLE_COL, 6 * CM))
+    fig, axes = plt.subplots(1, 3, figsize=(DOUBLE_COL, 6.5 * CM))
+    # 确保 results_df 中已经包含了 train_MSE 指标
     metrics = [("R2", "train_R2", "$R^2$"),
                ("RMSE", "train_RMSE", "RMSE"),
-               ("MSE", "MSE", "MSE")]
+               ("MSE", "train_MSE", "MSE")]
 
     x = np.arange(len(df))
-    width = 0.35
+    width = 0.38  # 稍微加宽一点，方便标注数值
 
-    # --- 顶级期刊配色方案 ---
-    # C_TRAIN: 莫兰迪深青蓝 (Midnight Blue)
-    # C_TEST:  莫兰迪干枯玫瑰红 (Muted Rose)
-    c_train = "#1F4E79"
-    c_test = "#C0504D"
+    # --- 配色：深青蓝 + 珊瑚橙 ---
+    c_train = "#1F4E79"  # 深青蓝
+    c_test = "#C0504D"  # 珊瑚橙
 
     for i, (m_test, m_train, title) in enumerate(metrics):
         ax = axes[i]
-        if m_train in df.columns:
-            # 增加白色极细边框，增强立体感
-            ax.bar(x - width / 2, df[m_train], width, label='Train',
-                   color=c_train, edgecolor='white', lw=0.6, alpha=0.9)
-            ax.bar(x + width / 2, df[m_test], width, label='Test',
-                   color=c_test, edgecolor='white', lw=0.6, alpha=0.9)
-        else:
-            ax.bar(x, df[m_test], width * 1.5, color=c_test, edgecolor='white', lw=0.6)
 
-        # 细节优化
+        # 绘制柱状图
+        b1 = ax.bar(x - width / 2, df[m_train], width, label='Train', color=c_train, edgecolor='white', lw=0.4)
+        b2 = ax.bar(x + width / 2, df[m_test], width, label='Test', color=c_test, edgecolor='white', lw=0.4)
+
+        # 内部函数：在柱顶标注 3 位小数
+        def add_labels(rects):
+            for rect in rects:
+                h = rect.get_height()
+                ax.text(rect.get_x() + rect.get_width() / 2., h + (h * 0.01),
+                        f'{h:.3f}', ha='center', va='bottom', fontsize=5.5, fontweight='bold')
+
+        add_labels(b1)
+        add_labels(b2)
+
+        # 细节美化
         ax.set_xticks(x)
         ax.set_xticklabels(df["abbr"], rotation=45, ha='right', fontsize=7)
+        ax.set_title(title, fontweight='bold', fontsize=9, pad=15)
 
-        # 仅保留左侧和底侧坐标轴
+        # 每一张图都强制加上图例
+        ax.legend(frameon=False, loc='best', fontsize=6)
+
         sns.despine(ax=ax)
-
-        # 增加极其微弱的水平网格线，辅助阅读但不抢戏
-        ax.yaxis.grid(True, linestyle='--', which='major', color='grey', alpha=0.15)
-
-        # 标题加粗并左对齐，这是顶刊风格
-        ax.set_title(title, fontweight='bold', fontsize=9, loc='left', pad=10)
-
-        if i == 0:
-            ax.legend(frameon=False, loc='upper right', fontsize=7)
+        ax.yaxis.grid(True, linestyle='--', alpha=0.1)
 
     fig.tight_layout()
-    save_fig(fig, "fig1_nature_bar")
+    save_fig(fig, "fig1_bar_with_labels")
 
 
 def plot_pred_vs_true(results_df: pd.DataFrame, y_test: np.ndarray) -> None:
-    """提升高级感的预测值对比散点图"""
+    """
+    4K 高清散点图：高对比度配色，确保训练集清晰可见，每张图独立图例。
+    """
     df = results_df.sort_values("R2", ascending=False).reset_index(drop=True)
     n = len(df)
     ncols = 3
     nrows = int(np.ceil(n / ncols))
-    fig, axes = plt.subplots(nrows, ncols, figsize=(DOUBLE_COL, 6 * nrows * CM))
+
+    # 增加子图间距，防止图例重叠
+    fig, axes = plt.subplots(nrows, ncols, figsize=(DOUBLE_COL, 7 * nrows * CM))
     axes = np.atleast_2d(axes).ravel()
 
-    # --- 高级感散点配色 ---
-    # 训练集：浅灰（背景感）；测试集：深藏蓝/宝石红
-    color_test = "#0D47A1"
-    color_train = "#B0BEC5"
+    # --- 高对比度学术配色 ---
+    # 训练集：淡蓝色 (确保能看清分布)
+    # 测试集：鲜红色 (确保绝对突出)
+    color_train = "#1F4E79"  # 更明显的淡蓝色
+    color_test = "#C0504D"  # 深红色
 
     for i, row in df.iterrows():
         ax = axes[i]
@@ -623,34 +624,44 @@ def plot_pred_vs_true(results_df: pd.DataFrame, y_test: np.ndarray) -> None:
         yp_test = np.asarray(row["y_pred"])
         yp_train = np.asarray(row["y_train_pred"])
 
-        # 1. 先画对角线 (置于最底层)
-        all_max = max(y_test.max(), yp_test.max(), y_tr_global.max())
-        ax.plot([0, all_max], [0, all_max], color='#212121', ls='--', lw=0.8, alpha=0.6, zorder=1)
+        # 1. 绘制对角线 (置于最底层)
+        all_vals = np.concatenate([y_test, yp_test, y_tr_global, yp_train])
+        low, high = all_vals.min(), all_vals.max()
+        ax.plot([low, high], [low, high], color='#333333', ls='--', lw=1, alpha=0.6, zorder=1)
 
-        # 2. 绘制训练集：极低透明度，无边框
-        ax.scatter(y_tr_global, yp_train, s=8, alpha=0.15, c=color_train,
+        # 2. 绘制训练集：增加 alpha 到 0.5，确保点清晰
+        ax.scatter(y_tr_global, yp_train, s=12, alpha=0.5, c=color_train,
                    label='Train', edgecolors='none', zorder=2)
 
-        # 3. 绘制测试集：较高透明度，白色细边框，增加 Z-index 确保在上方
-        ax.scatter(y_test, yp_test, s=18, alpha=0.8, c=color_test,
-                   label='Test', edgecolors='white', linewidths=0.4, zorder=3)
+        # 3. 绘制测试集：深红色 + 白色极细描边
+        ax.scatter(y_test, yp_test, s=28, alpha=0.9, c=color_test,
+                   label='Test', edgecolors='white', linewidths=0.7, zorder=3)
 
-        # 细节美化
-        ax.set_title(f"{abbr} ($R^2$: {row['R2']:.3f})", fontsize=9, loc='left')
-        ax.set_xlabel("Measured (µg/L)")
-        ax.set_ylabel("Predicted (µg/L)")
+        # 设置标题和标签
+        ax.set_title(f"Model: {abbr}", fontsize=10, loc='left', fontweight='bold')
+        ax.set_xlabel("Measured (µg/L)", fontsize=8)
+        ax.set_ylabel("Predicted (µg/L)", fontsize=8)
 
-        # 使用科学计数法（如果数值较大）
-        ax.ticklabel_format(style='plain', axis='both')
+        # --- 每一张子图都显示图例 ---
+        ax.legend(frameon=True, facecolor='white', framealpha=0.8,
+                  loc='upper left', fontsize=7, markerscale=1.2)
 
-        if i == 0:
-            ax.legend(frameon=False, loc='upper left', markerscale=1.2)
-
+        # 轴美化
         sns.despine(ax=ax)
+        ax.tick_params(labelsize=7)
 
-    for j in range(i + 1, len(axes)): axes[j].axis('off')
+    # 隐藏多余格子
+    for j in range(i + 1, len(axes)):
+        axes[j].axis('off')
+
     fig.tight_layout()
-    save_fig(fig, "fig2_improved_scatter")
+
+    # --- 4K 高清保存 ---
+    output_path = os.path.join(FIGURE_DIR, "fig2_4k_clear_scatter")
+    fig.savefig(f"{output_path}.png", dpi=600, bbox_inches='tight')
+    fig.savefig(f"{output_path}.pdf", bbox_inches='tight')
+    print(f"高清散点图已生成：{output_path}.png")
+    plt.close(fig)
 
 
 def plot_residuals(results_df: pd.DataFrame, y_test: np.ndarray) -> None:
