@@ -19,7 +19,7 @@ def set_nature_style():
     })
 
 
-def plot_eem_final_v3(folder_path, target_ex=280):
+def plot_eem_final_v3(folder_path, target_ex=285):
     set_nature_style()
 
     # --- 数据处理逻辑 (略，保持不变) ---
@@ -134,5 +134,5 @@ def plot_eem_final_v3(folder_path, target_ex=280):
 
 
 # 执行
-DATA_FOLDER = r"/Users/houlinlin/master/data/EEM_data/ntu/huan-ntu/excel/adjust"
+DATA_FOLDER = r"/Users/houlinlin/master/data/EEM_data/ntu/yang-ntu/excel/rename/adjust"
 plot_eem_final_v3(DATA_FOLDER)

@@ -91,7 +91,7 @@ warnings.filterwarnings("ignore")
 # ============================================================
 # 全局配置
 # ============================================================
-DATA_DIR = r"/Users/houlinlin/master/data/EEM_data/lixiang/EEM-huan/strength/all"
+DATA_DIR = r"C:\Users\yafex\Desktop\yang"
 FIGURE_DIR = os.path.join(DATA_DIR, "figure")
 MODEL_DIR = os.path.join(DATA_DIR, "models")
 RESULT_CSV = os.path.join(DATA_DIR, "results.csv")
@@ -570,19 +570,9 @@ def plot_performance_bar(results_df: pd.DataFrame) -> None:
     for i, (m_test, m_train, title) in enumerate(metrics):
         ax = axes[i]
 
-        # 绘制柱状图
-        b1 = ax.bar(x - width / 2, df[m_train], width, label='Train', color=c_train, edgecolor='white', lw=0.4)
-        b2 = ax.bar(x + width / 2, df[m_test], width, label='Test', color=c_test, edgecolor='white', lw=0.4)
-
-        # 内部函数：在柱顶标注 3 位小数
-        def add_labels(rects):
-            for rect in rects:
-                h = rect.get_height()
-                ax.text(rect.get_x() + rect.get_width() / 2., h + (h * 0.01),
-                        f'{h:.3f}', ha='center', va='bottom', fontsize=5.5, fontweight='bold')
-
-        add_labels(b1)
-        add_labels(b2)
+        # 绘制柱状图 (不再在柱顶标注数值)
+        ax.bar(x - width / 2, df[m_train], width, label='Train', color=c_train, edgecolor='white', lw=0.4)
+        ax.bar(x + width / 2, df[m_test], width, label='Test', color=c_test, edgecolor='white', lw=0.4)
 
         # 细节美化
         ax.set_xticks(x)
@@ -719,7 +709,7 @@ def plot_feature_importance(models: Dict[str, Any],
         vals = imp[idx]
 
         fig, ax = plt.subplots(
-            figsize=(SINGLE_COL * 1.6, 0.42 * top_n + 1.4)
+            figsize=(SINGLE_COL * 2.2, 0.42 * top_n + 1.4)
         )
 
         colors = sns.color_palette("viridis", top_n)
@@ -735,12 +725,13 @@ def plot_feature_importance(models: Dict[str, Any],
         ax.set_yticklabels(labels, fontsize=7)
         ax.set_xlabel("Feature importance")
         ax.set_title(f"Top-{top_n} wavelength pairs — {name}")
+        ax.margins(y=0.01)
 
         sns.despine(ax=ax)
 
-        # ✅ 关键：让左侧标签完整显示
+        # ✅ 关键：让左侧长标签完整显示 (加宽左边距)
         fig.tight_layout()
-        fig.subplots_adjust(left=0.38)
+        fig.subplots_adjust(left=0.32)
 
         save_fig(fig, f"fig4a_feature_importance_{name}")
 
