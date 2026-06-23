@@ -5,6 +5,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from scipy.signal import savgol_filter
+import re
+
 
 # 命名（）-（）-  浓度-浊度-   经过平滑后， 取固定ex绘制出的荧光强度随em变化的曲线图
 def set_nature_style():
@@ -19,7 +21,7 @@ def set_nature_style():
     })
 
 
-def plot_eem_final_v3(folder_path, target_ex=285):
+def plot_eem_final_v3(folder_path, target_ex=270):
     set_nature_style()
 
     # --- 数据处理逻辑 (略，保持不变) ---
@@ -27,11 +29,10 @@ def plot_eem_final_v3(folder_path, target_ex=285):
     all_data = []
     for fp in files:
         fname = os.path.basename(fp)
-        parts = fname.replace(".xlsx", "").split("-")
-        try:
-            conc, turb = float(parts[0]), float(parts[1])
-        except:
+        nums = re.findall(r"\d+(?:\.\d+)?", fname)
+        if len(nums) < 2:
             continue
+        conc, turb = float(nums[0]), float(nums[1])
         df = pd.read_excel(fp, index_col=0)
         df.columns = pd.to_numeric(df.columns, errors='coerce')
         ex_val = target_ex if target_ex in df.columns else df.columns[np.abs(df.columns - target_ex).argmin()]
@@ -95,7 +96,8 @@ def plot_eem_final_v3(folder_path, target_ex=285):
     for j, t in enumerate(u_turbs):
         legend_ax.text(j / n_cols + 0.5 / n_cols, TURB_Y_OFFSET, f"{int(t)}",
                        ha='center', va='bottom', fontweight='bold', fontsize=FS_NUM)
-    legend_ax.text(0.5, TURB_TITLE_Y, "Turbidity (NTU)", ha='center', fontweight='bold', fontsize=FS_TITLE)
+    legend_ax.text(0.5, TURB_TITLE_Y, r"HCO$_3^{-}$ (mg/L)",
+                   ha='center', fontweight='bold', fontsize=FS_TITLE)
 
     # 绘制浓度文字
     for i, c in enumerate(u_concs):
@@ -134,5 +136,5 @@ def plot_eem_final_v3(folder_path, target_ex=285):
 
 
 # 执行
-DATA_FOLDER = r"/Users/houlinlin/master/data/EEM_data/ntu/yang-ntu/excel/rename/adjust"
+DATA_FOLDER = r"/Users/houlinlin/master/data/EEM_data/yan/yan(1)/HCO3/HUAN/excel/rename"
 plot_eem_final_v3(DATA_FOLDER)

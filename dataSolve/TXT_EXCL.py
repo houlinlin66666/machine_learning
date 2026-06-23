@@ -94,8 +94,8 @@ def batch_process_txt_to_excel(input_dir, output_dir):
 
 
 # -------------------------- 配置参数（请根据实际情况修改）--------------------------
-INPUT_FOLDER = r"/Users/houlinlin/master/data/EEM_data/yan/Cl/huan"  # 例如：r"C:\Users\XXX\Fluorescence_Data\TxtFiles"
-OUTPUT_FOLDER = r"/Users/houlinlin/master/data/EEM_data/yan/Cl/huan/excel"  # 例如：r"C:\Users\XXX\Fluorescence_Data\ExcelFiles"
+INPUT_FOLDER = r"/Users/houlinlin/master/data/EEM_data/yan/SO4/YANG"  # 例如：r"C:\Users\XXX\Fluorescence_Data\TxtFiles"
+OUTPUT_FOLDER = r"/Users/houlinlin/master/data/EEM_data/yan/SO4/YANG/excel"  # 例如：r"C:\Users\XXX\Fluorescence_Data\ExcelFiles"
 # ----------------------------------------------------------------------------------
 
 if __name__ == "__main__":

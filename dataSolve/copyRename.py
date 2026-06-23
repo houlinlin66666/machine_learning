@@ -50,7 +50,7 @@ def batch_rename_and_copy(label_file, source_dir, output_dir):
 # --- 使用前配置 ---
 if __name__ == '__main__':
     batch_rename_and_copy(
-        label_file=r'/Users/houlinlin/master/data/EEM_data/youji/noadd/HUAN/excel/over/label.xlsx',  # 你的 label 文件路径
-        source_dir=r'/Users/houlinlin/master/data/EEM_data/youji/noadd/HUAN/excel/over',  # 原始样品文件所在的文件夹
-        output_dir=r'/Users/houlinlin/master/data/EEM_data/youji/noadd/HUAN/excel/rename'  # 处理后存放的文件夹
+        label_file=r'/Users/houlinlin/master/data/EEM_data/yan/yan(1)/blank/huan/excel/over/label.xlsx',  # 你的 label 文件路径
+        source_dir=r'/Users/houlinlin/master/data/EEM_data/yan/yan(1)/blank/yang/excel/over',  # 原始样品文件所在的文件夹
+        output_dir=r'/Users/houlinlin/master/data/EEM_data/yan/yan(1)/blank/yang/excel/rename'  # 处理后存放的文件夹
     )
